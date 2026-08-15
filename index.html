@@ -1,0 +1,547 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HSK 3 decks</title>
+<style>
+  :root {
+    --ground: #E7EBEE; --paper: #FFFFFF; --ink: #16202B; --ink-2: #55646F; --ink-3: #8A97A1;
+    --rule: #D3DAE0; --jade: #2E7D66; --jade-soft: #E4EFEA; --seal: #B93B27; --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #12181D; --paper: #1B232A; --ink: #E8EDF1; --ink-2: #9DAAB4; --ink-3: #6B7A85;
+      --rule: #2C3740; --jade: #5FBFA0; --jade-soft: #1E322C; --seal: #E0705A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 18px 48px; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+  h1 { font-size: 17px; font-weight: 500; margin: 0; }
+  .meta { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
+
+  .seal {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 5px; border: 1.5px solid var(--seal); color: var(--seal);
+    font-family: "Songti SC", "SimSun", "Noto Serif SC", serif; font-size: 16px; line-height: 1; flex: none;
+  }
+
+  .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 20px; }
+  .panel + .panel { margin-top: 14px; }
+  h2 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
+  .hint { font-size: 13px; color: var(--ink-2); margin: 0 0 16px; }
+  .hint:last-child { margin-bottom: 0; }
+
+  /* ---- Deck grid: a contact sheet of the whole course ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 8px; }
+  .deck {
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 9px 6px 7px; cursor: pointer; text-align: center; font-family: inherit; color: var(--ink);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .deck:hover { border-color: var(--jade); }
+  .deck:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
+  .deck .n { font-size: 15px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .deck .r { font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; line-height: 1; }
+  /* Level composition strip — shows the level mix without needing a legend per tile */
+  .strip { display: flex; width: 100%; height: 3px; border-radius: 2px; overflow: hidden; }
+  .strip i { display: block; height: 100%; }
+  .deck.done { background: var(--jade-soft); border-color: var(--jade); }
+  .deck.done .n { color: var(--jade); }
+
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); margin-top: 14px; align-items: center; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend i { width: 9px; height: 9px; border-radius: 2px; display: block; }
+
+  .jump { display: flex; gap: 8px; margin-bottom: 14px; }
+  .jump input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 8px 11px;
+                border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); }
+  .jump input:focus { outline: none; border-color: var(--jade); }
+
+  .mix-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .mix-row:last-child { margin-bottom: 0; }
+  .mix-row label { flex: none; width: 54px; font-size: 14px; color: var(--ink-2); }
+  .mix-row input[type=range] { flex: 1; accent-color: var(--jade); }
+  select { font-family: inherit; font-size: 14px; padding: 7px 9px; border: 1px solid var(--rule);
+           border-radius: 8px; background: var(--paper); color: var(--ink); flex: 1; min-width: 0; }
+  select:disabled { color: var(--ink-3); }
+  #rateOut { flex: none; width: 46px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  button { font-family: inherit; }
+  .primary { width: 100%; padding: 13px; border: none; border-radius: 10px;
+             background: var(--jade); color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; }
+  .ghost { width: 100%; padding: 12px; border: 1px solid var(--rule); border-radius: 10px;
+           background: none; color: var(--ink-2); font-size: 14px; cursor: pointer; margin-top: 8px; }
+  .ghost:hover { border-color: var(--jade); color: var(--jade); }
+
+  .bar { height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; margin-bottom: 18px; }
+  .bar span { display: block; height: 100%; background: var(--jade); width: 0; transition: width .25s ease; }
+
+  .card { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius);
+          min-height: 300px; padding: 24px; display: flex; flex-direction: column; cursor: pointer; user-select: none; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .face { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .hanzi { font-family: "Songti SC", "SimSun", "Noto Serif SC", "Microsoft YaHei", serif;
+           font-size: 62px; line-height: 1.25; letter-spacing: .06em; margin: 0; }
+  .pinyin { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 21px; color: var(--jade); margin: 10px 0 0; }
+  .meaning { font-size: 17px; margin: 14px 0 0; max-width: 30ch; }
+  .pos { font-size: 12px; color: var(--ink-3); margin-top: 6px; letter-spacing: .06em; }
+  .example { border-top: 1px solid var(--rule); margin-top: 20px; padding-top: 15px; text-align: left; width: 100%; }
+  .example .sent { font-family: "Songti SC", "SimSun", "Noto Serif SC", serif; font-size: 19px; margin: 0; line-height: 1.7; }
+  .example .sp { font-family: Georgia, serif; font-style: italic; font-size: 13px; color: var(--ink-2); margin: 5px 0 0; }
+  .example .se { font-size: 14px; color: var(--ink-2); margin: 5px 0 0; }
+  .example.empty { color: var(--ink-3); font-size: 13px; }
+  .flip-hint { text-align: center; font-size: 12px; color: var(--ink-3); margin-top: 16px; }
+  .audio-btn { background: none; border: 1px solid var(--rule); border-radius: 8px; flex: none;
+               width: 30px; height: 30px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
+  .audio-btn:hover { border-color: var(--jade); color: var(--jade); }
+
+  .grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+  .grade { padding: 11px 4px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink-2);
+           border-radius: 10px; cursor: pointer; font-size: 13px; }
+  .grade:hover { border-color: var(--jade); color: var(--jade); }
+  .grade small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+  .stat { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+  .stat:last-of-type { border-bottom: none; }
+  .stat b { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .hidden { display: none; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 420px) { .hanzi { font-size: 50px; } .grades { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 id="title">HSK decks</h1>
+    <span class="meta" id="meta"></span>
+  </header>
+
+  <!-- ============ DECK PICKER ============ -->
+  <section id="browse">
+    <div class="panel">
+      <h2>Pick a deck</h2>
+      <p class="hint">Each deck holds the same twenty words every time, mixed across levels.
+        Decks are numbered in a fixed order, so deck 7 is always deck 7.</p>
+
+      <div class="jump">
+        <input id="jumpInput" type="number" min="1" placeholder="Jump to deck number" inputmode="numeric">
+        <button class="audio-btn" id="jumpGo" aria-label="Go to deck" style="width:44px">→</button>
+      </div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="legend">
+        <span><i style="background:#8A97A1"></i>Level 1</span>
+        <span><i style="background:#55646F"></i>Level 2</span>
+        <span><i style="background:#B93B27"></i>Level 3</span>
+        <span id="doneCount"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Voice</h2>
+      <p class="hint">Locked to Meijia (zh-TW).</p>
+      <div class="mix-row">
+        <label>Voice</label>
+        <span id="voiceStatus" style="flex:1;min-width:0;font-size:14px;color:var(--ink-2)">Looking for Meijia…</span>
+        <button class="audio-btn" id="preview" aria-label="Preview this voice">▶</button>
+      </div>
+      <div class="mix-row">
+        <label for="rate">Speed</label>
+        <input type="range" id="rate" min="0.5" max="1.2" step="0.05" value="0.85">
+        <output id="rateOut">0.85×</output>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STUDY ============ -->
+  <section id="study" class="hidden">
+    <div class="bar"><span id="barFill"></span></div>
+    <div class="card" id="card">
+      <div class="card-top">
+        <span class="seal" id="seal">一</span>
+        <button class="audio-btn" id="speak" aria-label="Play pronunciation">▶</button>
+      </div>
+      <div class="face">
+        <p class="hanzi" id="hanzi">汉字</p>
+        <div id="back" class="hidden" style="width:100%">
+          <p class="pinyin" id="pinyin"></p>
+          <p class="meaning" id="meaning"></p>
+          <p class="pos" id="pos"></p>
+          <div class="example" id="example"></div>
+        </div>
+      </div>
+      <p class="flip-hint" id="flipHint">Tap or press space to reveal</p>
+    </div>
+    <div class="grades hidden" id="grades">
+      <button class="grade" data-q="1">Again<small>1</small></button>
+      <button class="grade" data-q="2">Hard<small>2</small></button>
+      <button class="grade" data-q="3">Good<small>3</small></button>
+      <button class="grade" data-q="4">Easy<small>4</small></button>
+    </div>
+    <button class="ghost" id="quit">Back to decks</button>
+  </section>
+
+  <!-- ============ SUMMARY ============ -->
+  <section id="done" class="hidden">
+    <div class="panel">
+      <h2 id="doneTitle">Deck finished</h2>
+      <p class="hint" id="doneHint"></p>
+      <div class="stat"><span>Cards seen</span><b id="sSeen">0</b></div>
+      <div class="stat"><span>Knew it</span><b id="sGood">0</b></div>
+      <div class="stat"><span>Needs another pass</span><b id="sAgain">0</b></div>
+      <div class="stat"><span>Retention</span><b id="sRate">—</b></div>
+    </div>
+    <div class="panel">
+      <button class="primary" id="next">Next deck</button>
+      <button class="ghost" id="back">Back to decks</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================================
+   DATA
+   Drop your wordlist at ./data/hsk-words.json. Shape per entry:
+     { hanzi, pinyin, meaning, pos, level, sentence, sentencePinyin, sentenceEn }
+   The embedded set below is a fallback so the page works standalone.
+   ========================================================================= */
+const SAMPLE = [
+  {hanzi:"谢谢",pinyin:"xièxie",meaning:"to thank; thanks",pos:"v",level:1,sentence:"谢谢你的帮助。",sentencePinyin:"Xièxie nǐ de bāngzhù.",sentenceEn:"Thanks for your help."},
+  {hanzi:"朋友",pinyin:"péngyou",meaning:"friend",pos:"n",level:1,sentence:"我和朋友一起吃饭。",sentencePinyin:"Wǒ hé péngyou yìqǐ chīfàn.",sentenceEn:"I eat with my friends."},
+  {hanzi:"学习",pinyin:"xuéxí",meaning:"to study; to learn",pos:"v",level:1,sentence:"我每天学习中文。",sentencePinyin:"Wǒ měitiān xuéxí Zhōngwén.",sentenceEn:"I study Chinese every day."},
+  {hanzi:"医院",pinyin:"yīyuàn",meaning:"hospital",pos:"n",level:1,sentence:"他去医院看医生。",sentencePinyin:"Tā qù yīyuàn kàn yīshēng.",sentenceEn:"He goes to the hospital to see a doctor."},
+  {hanzi:"喜欢",pinyin:"xǐhuan",meaning:"to like; to be fond of",pos:"v",level:1,sentence:"我喜欢喝茶。",sentencePinyin:"Wǒ xǐhuan hē chá.",sentenceEn:"I like drinking tea."},
+  {hanzi:"时间",pinyin:"shíjiān",meaning:"time",pos:"n",level:1,sentence:"你有时间吗？",sentencePinyin:"Nǐ yǒu shíjiān ma?",sentenceEn:"Do you have time?"},
+  {hanzi:"工作",pinyin:"gōngzuò",meaning:"work; job; to work",pos:"n/v",level:1,sentence:"我的工作很忙。",sentencePinyin:"Wǒ de gōngzuò hěn máng.",sentenceEn:"My job is very busy."},
+  {hanzi:"问题",pinyin:"wèntí",meaning:"question; problem",pos:"n",level:1,sentence:"这个问题很难。",sentencePinyin:"Zhège wèntí hěn nán.",sentenceEn:"This question is difficult."},
+  {hanzi:"电脑",pinyin:"diànnǎo",meaning:"computer",pos:"n",level:1,sentence:"我的电脑坏了。",sentencePinyin:"Wǒ de diànnǎo huài le.",sentenceEn:"My computer is broken."},
+  {hanzi:"开始",pinyin:"kāishǐ",meaning:"to begin; to start",pos:"v",level:1,sentence:"会议八点开始。",sentencePinyin:"Huìyì bā diǎn kāishǐ.",sentenceEn:"The meeting starts at eight."},
+
+  {hanzi:"决定",pinyin:"juédìng",meaning:"to decide; decision",pos:"v/n",level:2,sentence:"我决定明天出发。",sentencePinyin:"Wǒ juédìng míngtiān chūfā.",sentenceEn:"I decided to leave tomorrow."},
+  {hanzi:"影响",pinyin:"yǐngxiǎng",meaning:"to affect; influence",pos:"v/n",level:2,sentence:"天气影响我的心情。",sentencePinyin:"Tiānqì yǐngxiǎng wǒ de xīnqíng.",sentenceEn:"The weather affects my mood."},
+  {hanzi:"经验",pinyin:"jīngyàn",meaning:"experience",pos:"n",level:2,sentence:"他有很多工作经验。",sentencePinyin:"Tā yǒu hěn duō gōngzuò jīngyàn.",sentenceEn:"He has a lot of work experience."},
+  {hanzi:"环境",pinyin:"huánjìng",meaning:"environment; surroundings",pos:"n",level:2,sentence:"这里的环境很安静。",sentencePinyin:"Zhèlǐ de huánjìng hěn ānjìng.",sentenceEn:"The environment here is quiet."},
+  {hanzi:"方法",pinyin:"fāngfǎ",meaning:"method; way",pos:"n",level:2,sentence:"这个方法很有效。",sentencePinyin:"Zhège fāngfǎ hěn yǒuxiào.",sentenceEn:"This method is effective."},
+  {hanzi:"提供",pinyin:"tígōng",meaning:"to provide; to supply",pos:"v",level:2,sentence:"公司提供免费午餐。",sentencePinyin:"Gōngsī tígōng miǎnfèi wǔcān.",sentenceEn:"The company provides free lunch."},
+  {hanzi:"计划",pinyin:"jìhuà",meaning:"plan; to plan",pos:"n/v",level:2,sentence:"我们的计划改变了。",sentencePinyin:"Wǒmen de jìhuà gǎibiàn le.",sentenceEn:"Our plan changed."},
+  {hanzi:"关系",pinyin:"guānxi",meaning:"relationship; connection",pos:"n",level:2,sentence:"他们的关系很好。",sentencePinyin:"Tāmen de guānxi hěn hǎo.",sentenceEn:"Their relationship is good."},
+  {hanzi:"报告",pinyin:"bàogào",meaning:"report; to report",pos:"n/v",level:2,sentence:"我在写月度报告。",sentencePinyin:"Wǒ zài xiě yuèdù bàogào.",sentenceEn:"I am writing the monthly report."},
+  {hanzi:"结果",pinyin:"jiéguǒ",meaning:"result; outcome",pos:"n",level:2,sentence:"结果和我想的一样。",sentencePinyin:"Jiéguǒ hé wǒ xiǎng de yíyàng.",sentenceEn:"The result was what I expected."},
+
+  {hanzi:"情况",pinyin:"qíngkuàng",meaning:"situation; circumstances",pos:"n",level:3,sentence:"现在的情况比较复杂。",sentencePinyin:"Xiànzài de qíngkuàng bǐjiào fùzá.",sentenceEn:"The current situation is fairly complex."},
+  {hanzi:"状况",pinyin:"zhuàngkuàng",meaning:"condition; state",pos:"n",level:3,sentence:"他的身体状况不错。",sentencePinyin:"Tā de shēntǐ zhuàngkuàng búcuò.",sentenceEn:"His physical condition is good."},
+  {hanzi:"突然",pinyin:"tūrán",meaning:"sudden; suddenly",pos:"adj/adv",level:3,sentence:"他突然站了起来。",sentencePinyin:"Tā tūrán zhàn le qǐlái.",sentenceEn:"He suddenly stood up."},
+  {hanzi:"忽然",pinyin:"hūrán",meaning:"suddenly; all of a sudden",pos:"adv",level:3,sentence:"天忽然下起了雨。",sentencePinyin:"Tiān hūrán xià qǐ le yǔ.",sentenceEn:"It suddenly started to rain."},
+  {hanzi:"责任",pinyin:"zérèn",meaning:"responsibility; duty",pos:"n",level:3,sentence:"这是我的责任。",sentencePinyin:"Zhè shì wǒ de zérèn.",sentenceEn:"This is my responsibility."},
+  {hanzi:"效率",pinyin:"xiàolǜ",meaning:"efficiency",pos:"n",level:3,sentence:"新系统提高了工作效率。",sentencePinyin:"Xīn xìtǒng tígāo le gōngzuò xiàolǜ.",sentenceEn:"The new system improved work efficiency."},
+  {hanzi:"趋势",pinyin:"qūshì",meaning:"trend; tendency",pos:"n",level:3,sentence:"这是未来的发展趋势。",sentencePinyin:"Zhè shì wèilái de fāzhǎn qūshì.",sentenceEn:"This is the future development trend."},
+  {hanzi:"分析",pinyin:"fēnxī",meaning:"to analyse; analysis",pos:"v/n",level:3,sentence:"我们需要分析这些数据。",sentencePinyin:"Wǒmen xūyào fēnxī zhèxiē shùjù.",sentenceEn:"We need to analyse this data."},
+  {hanzi:"指标",pinyin:"zhǐbiāo",meaning:"indicator; metric; target",pos:"n",level:3,sentence:"这个月的指标完成了。",sentencePinyin:"Zhège yuè de zhǐbiāo wánchéng le.",sentenceEn:"This month's target was met."},
+  {hanzi:"预测",pinyin:"yùcè",meaning:"to forecast; prediction",pos:"v/n",level:3,sentence:"很难预测明年的销售。",sentencePinyin:"Hěn nán yùcè míngnián de xiāoshòu.",sentenceEn:"Next year's sales are hard to forecast."}
+];
+
+const SEAL = {1:"一", 2:"二", 3:"三"};
+const LEVEL_COLOR = {1:"#8A97A1", 2:"#55646F", 3:"#B93B27"};
+const DECK_SIZE = 20;
+const SEED = 20260815;          // fixed — changing it reshuffles every deck
+
+let pool = SAMPLE, decks = [];
+let deckIdx = 0, queue = [], idx = 0, flipped = false;
+let stats = { seen: 0, good: 0, again: 0 };
+
+/* PERSISTENCE HOOK ---------------------------------------------------------
+   Kept in memory so the page runs anywhere. On GitHub Pages, swap these two
+   functions for localStorage and deck completion survives reloads:
+     save: localStorage.setItem("hsk-progress", JSON.stringify(progress))
+     load: progress = JSON.parse(localStorage.getItem("hsk-progress") || "{}")
+   -------------------------------------------------------------------------- */
+let progress = {};              // deckIdx -> { rate: number }
+const STORE_KEY = "hsk-progress";
+
+// Wrapped in try/catch: private-browsing modes and some embedded viewers
+// throw on localStorage access, and losing progress shouldn't break the app.
+function saveProgress() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); }
+  catch (e) { /* session-only progress */ }
+}
+function loadProgress() {
+  try { progress = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
+  catch (e) { progress = {}; }
+}
+
+const $ = id => document.getElementById(id);
+
+/* =========================================================================
+   DETERMINISTIC DECK BUILDING
+   Deck membership must be identical on every load, so nothing here uses
+   Math.random — a seeded PRNG shuffles the pool the same way every time.
+   ========================================================================= */
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(arr, seed) {
+  const a = arr.slice(), rand = rng(seed);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildDecks() {
+  // 1. Shuffle each level independently (stable seed per level).
+  const groups = [1, 2, 3].map(l => seededShuffle(pool.filter(w => w.level === l), SEED + l));
+
+  // 2. Interleave by relative position. A word 30% of the way through the
+  //    level-1 list sorts next to one 30% through level-3, so every chunk of
+  //    20 inherits the pool's overall level ratio automatically.
+  const ordered = [];
+  groups.forEach(g => g.forEach((w, i) => ordered.push({ w, pos: (i + 0.5) / g.length })));
+  ordered.sort((a, b) => a.pos - b.pos);
+
+  // 3. Chunk into fixed decks of 20, then shuffle within each deck so the
+  //    levels are genuinely interleaved rather than ordered easy-to-hard.
+  decks = [];
+  for (let i = 0; i < ordered.length; i += DECK_SIZE) {
+    const chunk = ordered.slice(i, i + DECK_SIZE).map(o => o.w);
+    decks.push(seededShuffle(chunk, SEED + 1000 + decks.length));
+  }
+}
+
+/* ---- Load the real wordlist if present ---- */
+(async function init() {
+  try {
+    const res = await fetch("./data/hsk-words.json");
+    if (!res.ok) throw new Error("not found");
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) pool = data;
+  } catch (e) { /* fallback set already loaded */ }
+  loadProgress();
+  buildDecks();
+  renderGrid();
+})();
+
+/* =========================================================================
+   DECK PICKER
+   ========================================================================= */
+function renderGrid() {
+  $("meta").textContent = `${decks.length} decks · ${pool.length} words`;
+  const grid = $("grid");
+  grid.innerHTML = "";
+
+  decks.forEach((deck, i) => {
+    const counts = [1, 2, 3].map(l => deck.filter(w => w.level === l).length);
+    const btn = document.createElement("button");
+    btn.className = "deck" + (progress[i] ? " done" : "");
+    btn.title = `Deck ${i + 1} — ${counts[0]} / ${counts[1]} / ${counts[2]} by level`;
+
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = i + 1;
+    btn.appendChild(n);
+
+    // Composition strip: width of each segment = share of that level
+    const strip = document.createElement("span");
+    strip.className = "strip";
+    counts.forEach((c, li) => {
+      if (!c) return;
+      const seg = document.createElement("i");
+      seg.style.width = (c / deck.length * 100) + "%";
+      seg.style.background = LEVEL_COLOR[li + 1];
+      strip.appendChild(seg);
+    });
+    btn.appendChild(strip);
+
+    const r = document.createElement("span");
+    r.className = "r";
+    r.textContent = progress[i] ? progress[i].rate + "%" : deck.length;
+    btn.appendChild(r);
+
+    btn.addEventListener("click", () => startDeck(i));
+    grid.appendChild(btn);
+  });
+
+  const done = Object.keys(progress).length;
+  $("doneCount").textContent = done ? `${done} of ${decks.length} studied` : "";
+  $("jumpInput").max = decks.length;
+}
+
+function jump() {
+  const n = Number($("jumpInput").value);
+  if (n >= 1 && n <= decks.length) startDeck(n - 1);
+}
+$("jumpGo").addEventListener("click", jump);
+$("jumpInput").addEventListener("keydown", e => { if (e.key === "Enter") jump(); });
+
+/* =========================================================================
+   STUDY LOOP
+   ========================================================================= */
+function show(section) {
+  ["browse", "study", "done"].forEach(s => $(s).classList.toggle("hidden", s !== section));
+}
+
+function startDeck(i) {
+  deckIdx = i;
+  queue = decks[i].slice();     // copy — "Again" pushes onto the copy, not the deck
+  idx = 0;
+  stats = { seen: 0, good: 0, again: 0 };
+  $("title").textContent = `Deck ${i + 1}`;
+  $("meta").textContent = `${decks[i].length} words`;
+  show("study");
+  renderCard();
+}
+
+function renderCard() {
+  const w = queue[idx];
+  flipped = false;
+  $("hanzi").textContent = w.hanzi;
+  $("seal").textContent = SEAL[w.level] || "?";
+  $("seal").title = `HSK level ${w.level}`;
+  $("back").classList.add("hidden");
+  $("grades").classList.add("hidden");
+  $("flipHint").classList.remove("hidden");
+  $("pinyin").textContent = w.pinyin || "";
+  $("meaning").textContent = w.meaning || "";
+  $("pos").textContent = w.pos ? w.pos.toUpperCase() : "";
+
+  // Example sentence is the field most likely missing from a generated list.
+  const ex = $("example");
+  ex.innerHTML = "";
+  if (w.sentence) {
+    ex.className = "example";
+    const s = document.createElement("p"); s.className = "sent"; s.textContent = w.sentence; ex.appendChild(s);
+    if (w.sentencePinyin) { const p = document.createElement("p"); p.className = "sp"; p.textContent = w.sentencePinyin; ex.appendChild(p); }
+    if (w.sentenceEn) { const e = document.createElement("p"); e.className = "se"; e.textContent = w.sentenceEn; ex.appendChild(e); }
+  } else {
+    ex.className = "example empty";
+    ex.textContent = "No example sentence for this word yet.";
+  }
+  $("barFill").style.width = (idx / queue.length * 100) + "%";
+}
+
+function flip() {
+  if (flipped) return;
+  flipped = true;
+  $("back").classList.remove("hidden");
+  $("grades").classList.remove("hidden");
+  $("flipHint").classList.add("hidden");
+}
+$("card").addEventListener("click", flip);
+
+$("speak").addEventListener("click", e => {
+  e.stopPropagation();
+  speak(queue[idx] ? queue[idx].hanzi : "");
+});
+
+/* Grade 1 requeues the card at the end of this session's queue; the deck's
+   own membership never changes. Wire SM-2 in at the marked line. */
+document.querySelectorAll(".grade").forEach(b => b.addEventListener("click", () => grade(Number(b.dataset.q))));
+
+function grade(q) {
+  if (!flipped) return;
+  stats.seen++;
+  if (q === 1) { stats.again++; queue.push(queue[idx]); }
+  else { stats.good++; }
+  // SM-2 HOOK: schedule(queue[idx], q) and persist the result here.
+  idx++;
+  if (idx >= queue.length) finish(); else renderCard();
+}
+
+function finish() {
+  const rate = stats.seen ? Math.round(stats.good / stats.seen * 100) : 0;
+  progress[deckIdx] = { rate };
+  saveProgress();
+  $("doneTitle").textContent = `Deck ${deckIdx + 1} finished`;
+  $("sSeen").textContent = stats.seen;
+  $("sGood").textContent = stats.good;
+  $("sAgain").textContent = stats.again;
+  $("sRate").textContent = rate + "%";
+  $("doneHint").textContent = rate >= 85
+    ? "Solid. Move on to the next deck."
+    : "Below 85% — worth repeating this deck before moving on.";
+  $("next").textContent = deckIdx + 1 < decks.length ? `Start deck ${deckIdx + 2}` : "Back to decks";
+  $("barFill").style.width = "100%";
+  show("done");
+}
+
+$("next").addEventListener("click", () => {
+  if (deckIdx + 1 < decks.length) startDeck(deckIdx + 1);
+  else toBrowse();
+});
+$("back").addEventListener("click", toBrowse);
+$("quit").addEventListener("click", toBrowse);
+
+function toBrowse() {
+  $("title").textContent = "HSK decks";
+  renderGrid();
+  show("browse");
+}
+
+/* =========================================================================
+   VOICE
+   ========================================================================= */
+let chosenVoice = null;
+
+/* Meijia (美佳) is Apple's Taiwanese Mandarin voice — present on macOS and iOS
+   once the Chinese (Taiwan) voice is installed. Match on name rather than lang,
+   since the reported name varies by locale ("Meijia", "美佳"). */
+function resolveVoice() {
+  if (!window.speechSynthesis) return;
+  const all = speechSynthesis.getVoices();
+  const status = $("voiceStatus");
+
+  const meijia = all.find(v => /meijia|美佳/i.test(v.name));
+  if (meijia) {
+    chosenVoice = meijia;
+    status.textContent = `${meijia.name} · ${meijia.lang}`;
+    status.style.color = "var(--ink-2)";
+    $("preview").disabled = false;
+    return;
+  }
+
+  // Fall back so the app still speaks, but say plainly that it isn't Meijia.
+  chosenVoice = all.find(v => /^zh-TW/i.test(v.lang)) || all.find(v => /^(zh|cmn)/i.test(v.lang)) || null;
+  status.textContent = chosenVoice
+    ? `Meijia not installed — using ${chosenVoice.name}`
+    : "No Chinese voice installed on this device";
+  status.style.color = "var(--seal)";
+  $("preview").disabled = !chosenVoice;
+}
+
+if (window.speechSynthesis) {
+  resolveVoice();
+  speechSynthesis.onvoiceschanged = resolveVoice;   // Chrome loads the list async
+}
+
+$("rate").addEventListener("input", e => { $("rateOut").textContent = Number(e.target.value).toFixed(2) + "×"; });
+$("preview").addEventListener("click", () => speak("我們開始學習中文。"));
+
+function speak(text) {
+  if (!text || !window.speechSynthesis || !chosenVoice) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.voice = chosenVoice;
+  u.lang = chosenVoice.lang;   // must match the voice or some engines ignore it
+  u.rate = Number($("rate").value);
+  speechSynthesis.speak(u);
+}
+
+/* ---- Keyboard: space flips, 1–4 grades, R replays ---- */
+document.addEventListener("keydown", e => {
+  if ($("study").classList.contains("hidden")) return;
+  if (e.code === "Space") { e.preventDefault(); flip(); }
+  else if (["1","2","3","4"].includes(e.key)) grade(Number(e.key));
+  else if (e.key.toLowerCase() === "r") speak(queue[idx] ? queue[idx].hanzi : "");
+});
+</script>
