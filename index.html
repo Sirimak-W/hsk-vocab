@@ -20,7 +20,10 @@
   .wrap { max-width: 620px; margin: 0 auto; }
 
   header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
-  h1 { font-size: 17px; font-weight: 500; margin: 0; }
+  h1 { font-size: 17px; font-weight: 500; margin: 0; display: flex; align-items: baseline; gap: 10px; }
+  .home-btn { background: none; border: 1px solid var(--rule); border-radius: 8px; padding: 3px 10px;
+              font-size: 13px; color: var(--ink-2); cursor: pointer; align-self: center; }
+  .home-btn:hover { border-color: var(--jade); color: var(--jade); }
   .meta { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
 
   .seal {
@@ -116,7 +119,7 @@
 
 <div class="wrap">
   <header>
-    <h1 id="title">HSK decks</h1>
+    <h1><button class="home-btn hidden" id="home" aria-label="Back to home">← Home</button><span id="title">HSK decks</span></h1>
     <span class="meta" id="meta"></span>
   </header>
 
@@ -198,7 +201,7 @@
     </div>
     <div class="panel">
       <button class="primary" id="next">Next deck</button>
-      <button class="ghost" id="back">Back to decks</button>
+      <button class="ghost" id="doneBack">Back to decks</button>
     </div>
   </section>
 </div>
@@ -389,6 +392,7 @@ $("jumpInput").addEventListener("keydown", e => { if (e.key === "Enter") jump();
    ========================================================================= */
 function show(section) {
   ["browse", "study", "done"].forEach(s => $(s).classList.toggle("hidden", s !== section));
+  $("home").classList.toggle("hidden", section === "browse");
 }
 
 function startDeck(i) {
@@ -479,10 +483,12 @@ $("next").addEventListener("click", () => {
   if (deckIdx + 1 < decks.length) startDeck(deckIdx + 1);
   else toBrowse();
 });
-$("back").addEventListener("click", toBrowse);
+$("doneBack").addEventListener("click", toBrowse);
+$("home").addEventListener("click", toBrowse);
 $("quit").addEventListener("click", toBrowse);
 
 function toBrowse() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
   $("title").textContent = "HSK decks";
   renderGrid();
   show("browse");
@@ -537,8 +543,9 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-/* ---- Keyboard: space flips, 1–4 grades, R replays ---- */
+/* ---- Keyboard: space flips, 1–4 grades, R replays, Esc goes home ---- */
 document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("browse").classList.contains("hidden")) { toBrowse(); return; }
   if ($("study").classList.contains("hidden")) return;
   if (e.code === "Space") { e.preventDefault(); flip(); }
   else if (["1","2","3","4"].includes(e.key)) grade(Number(e.key));
