@@ -54,6 +54,7 @@
   .strip i { display: block; height: 100%; }
   .deck.done { background: var(--jade-soft); border-color: var(--jade); }
   .deck.done .n { color: var(--jade); }
+  .deck.partial { border-color: var(--jade); border-style: dashed; }
 
   .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); margin-top: 14px; align-items: center; flex-wrap: wrap; }
   .legend span { display: flex; align-items: center; gap: 5px; }
@@ -266,6 +267,12 @@ let stats = { seen: 0, good: 0, again: 0 };
 let progress = {};              // deckIdx -> { rate: number }
 const STORE_KEY = "hsk-progress";
 
+// Unfinished decks, so leaving mid-deck and coming back resumes on the same
+// word. Queue is stored as positions in the deck (requeued "Again" cards
+// appear twice), which stays valid because deck membership is fixed.
+let sessions = {};              // deckIdx -> { q: number[], idx, stats }
+const SESSION_KEY = "hsk-sessions";
+
 // Wrapped in try/catch: private-browsing modes and some embedded viewers
 // throw on localStorage access, and losing progress shouldn't break the app.
 function saveProgress() {
@@ -275,6 +282,17 @@ function saveProgress() {
 function loadProgress() {
   try { progress = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
   catch (e) { progress = {}; }
+  try { sessions = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}"); }
+  catch (e) { sessions = {}; }
+}
+function saveSession() {
+  const deck = decks[deckIdx];
+  sessions[deckIdx] = { q: queue.map(w => deck.indexOf(w)), idx, stats };
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(sessions)); } catch (e) {}
+}
+function clearSession(i) {
+  delete sessions[i];
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(sessions)); } catch (e) {}
 }
 
 const $ = id => document.getElementById(id);
@@ -346,7 +364,8 @@ function renderGrid() {
   decks.forEach((deck, i) => {
     const counts = [1, 2, 3].map(l => deck.filter(w => w.level === l).length);
     const btn = document.createElement("button");
-    btn.className = "deck" + (progress[i] ? " done" : "");
+    const open = sessions[i];
+    btn.className = "deck" + (progress[i] ? " done" : "") + (open ? " partial" : "");
     btn.title = `Deck ${i + 1} — ${counts[0]} / ${counts[1]} / ${counts[2]} by level`;
 
     const n = document.createElement("span");
@@ -368,7 +387,9 @@ function renderGrid() {
 
     const r = document.createElement("span");
     r.className = "r";
-    r.textContent = progress[i] ? progress[i].rate + "%" : deck.length;
+    // In-progress decks show how far in you are, e.g. "7/20".
+    r.textContent = open ? `${Math.min(open.idx, deck.length)}/${deck.length}`
+                  : progress[i] ? progress[i].rate + "%" : deck.length;
     btn.appendChild(r);
 
     btn.addEventListener("click", () => startDeck(i));
@@ -397,9 +418,16 @@ function show(section) {
 
 function startDeck(i) {
   deckIdx = i;
-  queue = decks[i].slice();     // copy — "Again" pushes onto the copy, not the deck
-  idx = 0;
-  stats = { seen: 0, good: 0, again: 0 };
+  const saved = sessions[i];
+  if (saved && saved.q.every(n => decks[i][n]) && saved.idx < saved.q.length) {
+    queue = saved.q.map(n => decks[i][n]);   // resume on the word you left
+    idx = saved.idx;
+    stats = saved.stats;
+  } else {
+    queue = decks[i].slice();   // copy — "Again" pushes onto the copy, not the deck
+    idx = 0;
+    stats = { seen: 0, good: 0, again: 0 };
+  }
   $("title").textContent = `Deck ${i + 1}`;
   $("meta").textContent = `${decks[i].length} words`;
   show("study");
@@ -459,13 +487,14 @@ function grade(q) {
   else { stats.good++; }
   // SM-2 HOOK: schedule(queue[idx], q) and persist the result here.
   idx++;
-  if (idx >= queue.length) finish(); else renderCard();
+  if (idx >= queue.length) finish(); else { saveSession(); renderCard(); }
 }
 
 function finish() {
   const rate = stats.seen ? Math.round(stats.good / stats.seen * 100) : 0;
   progress[deckIdx] = { rate };
   saveProgress();
+  clearSession(deckIdx);
   $("doneTitle").textContent = `Deck ${deckIdx + 1} finished`;
   $("sSeen").textContent = stats.seen;
   $("sGood").textContent = stats.good;
