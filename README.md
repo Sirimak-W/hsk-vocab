@@ -74,8 +74,9 @@ and your progress numbers stop meaning anything.
 
 ## Progress
 
-Deck completion and retention are stored in `localStorage` under
-`hsk-progress`. It is per-browser and per-device; there is no sync.
+Finished decks are stored in `localStorage` under `hsk-progress`, and the
+current word in any unfinished deck under `hsk-sessions`, so leaving a deck
+and coming back resumes where you stopped. It is per-browser and per-device; there is no sync.
 
 ## Voice
 
@@ -89,8 +90,9 @@ standard HSK tests on some words (和 as `hàn`, 垃圾 as `lèsè`).
 | Key | Action |
 |---|---|
 | Space | reveal the card |
-| 1–4 | grade: again / hard / good / easy |
+| → / ← | next / previous word |
 | R | replay pronunciation |
+| Esc | back to home |
 
 ## Source
 

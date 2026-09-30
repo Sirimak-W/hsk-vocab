@@ -103,11 +103,12 @@
                width: 30px; height: 30px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
   .audio-btn:hover { border-color: var(--jade); color: var(--jade); }
 
-  .grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
-  .grade { padding: 11px 4px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink-2);
+  .nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; margin-top: 14px; align-items: center; }
+  .nav .pos-count { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 48px; text-align: center; }
+  .navbtn { padding: 12px 4px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink-2);
            border-radius: 10px; cursor: pointer; font-size: 13px; }
-  .grade:hover { border-color: var(--jade); color: var(--jade); }
-  .grade small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .navbtn:hover:not(:disabled) { border-color: var(--jade); color: var(--jade); }
+  .navbtn:disabled { color: var(--ink-3); cursor: default; opacity: .5; }
 
   .stat { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
   .stat:last-of-type { border-bottom: none; }
@@ -115,7 +116,7 @@
 
   .hidden { display: none; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-  @media (max-width: 420px) { .hanzi { font-size: 50px; } .grades { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 420px) { .hanzi { font-size: 50px; } }
 </style>
 
 <div class="wrap">
@@ -181,11 +182,10 @@
       </div>
       <p class="flip-hint" id="flipHint">Tap or press space to reveal</p>
     </div>
-    <div class="grades hidden" id="grades">
-      <button class="grade" data-q="1">Again<small>1</small></button>
-      <button class="grade" data-q="2">Hard<small>2</small></button>
-      <button class="grade" data-q="3">Good<small>3</small></button>
-      <button class="grade" data-q="4">Easy<small>4</small></button>
+    <div class="nav">
+      <button class="navbtn" id="prevWord">← Back</button>
+      <span class="pos-count" id="posCount"></span>
+      <button class="navbtn" id="nextWord">Next →</button>
     </div>
     <button class="ghost" id="quit">Back to decks</button>
   </section>
@@ -195,10 +195,7 @@
     <div class="panel">
       <h2 id="doneTitle">Deck finished</h2>
       <p class="hint" id="doneHint"></p>
-      <div class="stat"><span>Cards seen</span><b id="sSeen">0</b></div>
-      <div class="stat"><span>Knew it</span><b id="sGood">0</b></div>
-      <div class="stat"><span>Needs another pass</span><b id="sAgain">0</b></div>
-      <div class="stat"><span>Retention</span><b id="sRate">—</b></div>
+      <div class="stat"><span>Words reviewed</span><b id="sSeen">0</b></div>
     </div>
     <div class="panel">
       <button class="primary" id="next">Next deck</button>
@@ -256,7 +253,6 @@ const SEED = 20260815;          // fixed — changing it reshuffles every deck
 
 let pool = SAMPLE, decks = [];
 let deckIdx = 0, queue = [], idx = 0, flipped = false;
-let stats = { seen: 0, good: 0, again: 0 };
 
 /* PERSISTENCE HOOK ---------------------------------------------------------
    Kept in memory so the page runs anywhere. On GitHub Pages, swap these two
@@ -264,13 +260,12 @@ let stats = { seen: 0, good: 0, again: 0 };
      save: localStorage.setItem("hsk-progress", JSON.stringify(progress))
      load: progress = JSON.parse(localStorage.getItem("hsk-progress") || "{}")
    -------------------------------------------------------------------------- */
-let progress = {};              // deckIdx -> { rate: number }
+let progress = {};              // deckIdx -> {} once finished
 const STORE_KEY = "hsk-progress";
 
 // Unfinished decks, so leaving mid-deck and coming back resumes on the same
-// word. Queue is stored as positions in the deck (requeued "Again" cards
-// appear twice), which stays valid because deck membership is fixed.
-let sessions = {};              // deckIdx -> { q: number[], idx, stats }
+// word. Deck membership and order are fixed, so the index is enough.
+let sessions = {};              // deckIdx -> { idx }
 const SESSION_KEY = "hsk-sessions";
 
 // Wrapped in try/catch: private-browsing modes and some embedded viewers
@@ -286,8 +281,7 @@ function loadProgress() {
   catch (e) { sessions = {}; }
 }
 function saveSession() {
-  const deck = decks[deckIdx];
-  sessions[deckIdx] = { q: queue.map(w => deck.indexOf(w)), idx, stats };
+  sessions[deckIdx] = { idx };
   try { localStorage.setItem(SESSION_KEY, JSON.stringify(sessions)); } catch (e) {}
 }
 function clearSession(i) {
@@ -389,7 +383,7 @@ function renderGrid() {
     r.className = "r";
     // In-progress decks show how far in you are, e.g. "7/20".
     r.textContent = open ? `${Math.min(open.idx, deck.length)}/${deck.length}`
-                  : progress[i] ? progress[i].rate + "%" : deck.length;
+                  : progress[i] ? "✓" : deck.length;
     btn.appendChild(r);
 
     btn.addEventListener("click", () => startDeck(i));
@@ -418,16 +412,10 @@ function show(section) {
 
 function startDeck(i) {
   deckIdx = i;
+  queue = decks[i];
   const saved = sessions[i];
-  if (saved && saved.q.every(n => decks[i][n]) && saved.idx < saved.q.length) {
-    queue = saved.q.map(n => decks[i][n]);   // resume on the word you left
-    idx = saved.idx;
-    stats = saved.stats;
-  } else {
-    queue = decks[i].slice();   // copy — "Again" pushes onto the copy, not the deck
-    idx = 0;
-    stats = { seen: 0, good: 0, again: 0 };
-  }
+  // Resume on the word you left; clamp in case an old save points past the end.
+  idx = saved ? Math.min(Math.max(saved.idx | 0, 0), queue.length - 1) : 0;
   $("title").textContent = `Deck ${i + 1}`;
   $("meta").textContent = `${decks[i].length} words`;
   show("study");
@@ -441,7 +429,6 @@ function renderCard() {
   $("seal").textContent = SEAL[w.level] || "?";
   $("seal").title = `HSK level ${w.level}`;
   $("back").classList.add("hidden");
-  $("grades").classList.add("hidden");
   $("flipHint").classList.remove("hidden");
   $("pinyin").textContent = w.pinyin || "";
   $("meaning").textContent = w.meaning || "";
@@ -460,13 +447,15 @@ function renderCard() {
     ex.textContent = "No example sentence for this word yet.";
   }
   $("barFill").style.width = (idx / queue.length * 100) + "%";
+  $("posCount").textContent = `${idx + 1} / ${queue.length}`;
+  $("prevWord").disabled = idx === 0;
+  $("nextWord").textContent = idx === queue.length - 1 ? "Finish ✓" : "Next →";
 }
 
 function flip() {
   if (flipped) return;
   flipped = true;
   $("back").classList.remove("hidden");
-  $("grades").classList.remove("hidden");
   $("flipHint").classList.add("hidden");
 }
 $("card").addEventListener("click", flip);
@@ -476,33 +465,26 @@ $("speak").addEventListener("click", e => {
   speak(queue[idx] ? queue[idx].hanzi : "");
 });
 
-/* Grade 1 requeues the card at the end of this session's queue; the deck's
-   own membership never changes. Wire SM-2 in at the marked line. */
-document.querySelectorAll(".grade").forEach(b => b.addEventListener("click", () => grade(Number(b.dataset.q))));
-
-function grade(q) {
-  if (!flipped) return;
-  stats.seen++;
-  if (q === 1) { stats.again++; queue.push(queue[idx]); }
-  else { stats.good++; }
-  // SM-2 HOOK: schedule(queue[idx], q) and persist the result here.
+function nextWord() {
   idx++;
   if (idx >= queue.length) finish(); else { saveSession(); renderCard(); }
 }
+function prevWord() {
+  if (idx === 0) return;
+  idx--;
+  saveSession();
+  renderCard();
+}
+$("nextWord").addEventListener("click", nextWord);
+$("prevWord").addEventListener("click", prevWord);
 
 function finish() {
-  const rate = stats.seen ? Math.round(stats.good / stats.seen * 100) : 0;
-  progress[deckIdx] = { rate };
+  progress[deckIdx] = {};
   saveProgress();
   clearSession(deckIdx);
   $("doneTitle").textContent = `Deck ${deckIdx + 1} finished`;
-  $("sSeen").textContent = stats.seen;
-  $("sGood").textContent = stats.good;
-  $("sAgain").textContent = stats.again;
-  $("sRate").textContent = rate + "%";
-  $("doneHint").textContent = rate >= 85
-    ? "Solid. Move on to the next deck."
-    : "Below 85% — worth repeating this deck before moving on.";
+  $("sSeen").textContent = queue.length;
+  $("doneHint").textContent = "Move on to the next deck, or come back to this one any time.";
   $("next").textContent = deckIdx + 1 < decks.length ? `Start deck ${deckIdx + 2}` : "Back to decks";
   $("barFill").style.width = "100%";
   show("done");
@@ -572,12 +554,13 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-/* ---- Keyboard: space flips, 1–4 grades, R replays, Esc goes home ---- */
+/* ---- Keyboard: space flips, ←/→ move between words, R replays, Esc goes home ---- */
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && $("browse").classList.contains("hidden")) { toBrowse(); return; }
   if ($("study").classList.contains("hidden")) return;
   if (e.code === "Space") { e.preventDefault(); flip(); }
-  else if (["1","2","3","4"].includes(e.key)) grade(Number(e.key));
+  else if (e.key === "ArrowRight") nextWord();
+  else if (e.key === "ArrowLeft") prevWord();
   else if (e.key.toLowerCase() === "r") speak(queue[idx] ? queue[idx].hanzi : "");
 });
 </script>
